@@ -1,0 +1,143 @@
+An ArrayList in Java is a resizable array implementation of the  interface. It dynamically grows, allows duplicate and null values, maintains insertion order, and provides fast index-based random access (). [1, 2, 3, 4]  
+Core Conceptual Questions 
+
+• Array vs. ArrayList: Arrays have a fixed size and can hold primitive types. ArrayLists are dynamic in size, can only hold objects (using wrapper classes for primitives), and offer built-in manipulation methods. 
+• Default capacity: The default initial capacity of an  in Java is  when using the no-argument constructor. 
+• Resizing mechanism: When an  exceeds its capacity, it creates a new array with a size roughly  larger than the old one () and copies the old elements into it. 
+• ArrayList vs. Vector:  is non-synchronized (not thread-safe) and faster.  is synchronized (thread-safe) and slower, and it doubles its size when full instead of increasing by 50%. 
+• Implemented marker interfaces: An  implements , , and . [7]  
+
+Performance & Operation Questions 
+
+• Time complexity of :  because it utilizes direct index-based positioning in the underlying array. 
+• Time complexity of : Amortized , but takes  when resizing occurs due to array copying. 
+• Time complexity of insertion/deletion in the middle:  because elements must be shifted right or left to accommodate the change. 
+• Null values:  allows multiple  values to be added as elements. [1, 2, 4]  
+
+## 1. Internal Working & Resizing Mechanism
+
+An `ArrayList` in Java is backed by a standard array (`Object[] elementData`).
+
+### Key Internal Fields (Java 8+)
+
+* `DEFAULT_CAPACITY = 10`
+* `Object[] elementData`: The buffer array where elements are stored.
+* `int size`: The number of elements currently in the list.
+
+### Lazy Initialization
+
+When you instantiate `ArrayList list = new ArrayList<>()`, the internal array is initialized to an empty array (`{}` / `DEFAULTCAPACITY_EMPTY_ELEMENTDATA`). Space for 10 elements is **allocated only when the first element is added**.
+
+### Resizing Formula
+
+When the array becomes full (`size == elementData.length`):
+
+1. Java calculates the new capacity using bitwise right-shift:
+
+$$\text{newCapacity} = \text{oldCapacity} + (\text{oldCapacity} \gg 1)$$
+
+
+
+*(This grows the capacity by **1.5 times** / 50%).*
+2. It creates a new `Object[]` of `newCapacity`.
+3. It copies elements using `System.arraycopy()` (a native JVM operation).
+
+> **Interview Tip:** Emphasize that copying elements is an $O(n)$ operation. If you know you will store 100,000 elements, always pre-size the list: `new ArrayList<>(100000)` to avoid multiple array re-allocations.
+
+---
+
+## 2. Time & Space Complexity
+
+| Operation | Time Complexity | Details |
+| --- | --- | --- |
+| **`get(index)` / `set(index, elem)**` | $O(1)$ | Direct array index lookup using pointer arithmetic. |
+| **`add(elem)` (at the end)** | Amortized $O(1)$ | $O(1)$ usually, but $O(n)$ when a resize happens. |
+| **`add(index, elem)`** | $O(n)$ | Must shift all subsequent elements to the right via `System.arraycopy`. |
+| **`remove(index)`** | $O(n)$ | Shifts remaining elements left to fill the gap. |
+| **`contains(elem)` / `indexOf(elem)**` | $O(n)$ | Linear search through array elements. |
+
+---
+
+## 3. ArrayList vs. LinkedList (The Classic Interview Comparison)
+
+At 3 YOE, saying *"LinkedList is faster for insertions"* is an incomplete answer. Modern CPU architectures change this trade-off dramatically:
+
+```
+ArrayList:  [ 10 | 20 | 30 | 40 ]  (Contiguous block in memory)
+                                    ---> CPU Cache Friendly!
+
+LinkedList: [Node A] -> [Node B] -> [Node C]  (Scattered in heap)
+                                    ---> Causes CPU Cache Misses
+
+```
+
+* **Memory Locality:** `ArrayList` stores elements in contiguous memory. Modern CPU L1/L2 caches pre-fetch contiguous memory blocks, making `ArrayList` iteration vastly faster in practice than `LinkedList`.
+* **Insertion Reality:** While `LinkedList` offers $O(1)$ node insertion, finding the position requires $O(n)$ traversal. Unless inserting at the very beginning (`addFirst`), `ArrayList` often outperforms `LinkedList` due to cache locality and low object overhead.
+* **Memory Overhead:** `LinkedList` requires extra memory per element to store two pointers (`next` and `prev` on a 64-bit JVM = ~24 bytes overhead per node).
+
+---
+
+## 4. Fail-Fast Iterators & `modCount`
+
+`ArrayList` iterators are **fail-fast**. If the list is structurally modified (added/removed) while iterating via a thread or single thread (outside the iterator's own `remove()` method), it throws a `ConcurrentModificationException`.
+
+### How it works internally:
+
+1. `ArrayList` maintains an internal integer field called `modCount` (inherited from `AbstractList`). Every structural modification increments `modCount`.
+2. When an `Iterator` is created, it stores `expectedModCount = modCount`.
+3. On every `next()` or `remove()` call, it checks `if (modCount != expectedModCount)`. If they mismatch, it immediately throws `ConcurrentModificationException`.
+
+```java
+// WRONG: Throws ConcurrentModificationException
+for (String item : list) {
+    if (item.equals("removeMe")) {
+        list.remove(item); // Modifies modCount!
+    }
+}
+
+// CORRECT: Using Iterator directly
+Iterator<String> it = list.iterator();
+while (it.hasNext()) {
+    if (it.next().equals("removeMe")) {
+        it.remove(); // Safely updates expectedModCount
+    }
+}
+
+```
+
+---
+
+## 5. Thread Safety & Synchronization
+
+`ArrayList` is **not thread-safe**. If multiple threads access it concurrently and at least one modifies it structurally, it can lead to corrupted internal state or `ArrayIndexOutOfBoundsException`.
+
+### How to make it thread-safe:
+
+1. **`Collections.synchronizedList(new ArrayList<>())`**
+* Uses a synchronized wrapper around each method.
+* *Drawback:* Coarse-grained locking; performance degrades under high write concurrency.
+
+
+2. **`CopyOnWriteArrayList` (from `java.util.concurrent`)**
+* Creates a fresh copy of the underlying array on every write (`add`, `set`, `remove`).
+* Reads do not require locking ($O(1)$ lock-free read).
+* *Best for:* **Read-heavy, write-rare** scenarios (e.g., event listener lists).
+
+
+
+---
+
+## 6. High-Frequency Interview Questions (Quick Reference)
+
+### Q1: What happens if you pass a negative or initial capacity of 0?
+
+* Capacity `0`: It uses a shared empty array instance `EMPTY_ELEMENTDATA`. On first `add()`, it expands to size 10.
+* Negative capacity: Throws `IllegalArgumentException`.
+
+### Q2: How do you shrink an ArrayList to save memory after deleting many elements?
+
+* Call `list.trimToSize()`. It sets the array capacity equal to the current `size` using `Arrays.copyOf`.
+
+### Q3: Why can't we create an `ArrayList` of primitives like `ArrayList<int>`?
+
+* Generics in Java work via **Type Erasure** (compiled down to `Object`). Since primitives do not inherit from `Object`, generics only accept reference types (`ArrayList<Integer>`). Auto-boxing handles conversions, but adds memory and CPU overhead.
