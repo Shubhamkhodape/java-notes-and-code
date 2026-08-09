@@ -17,7 +17,7 @@ public class Test {
         stack.pop();
         stack.peek();
         System.out.println(stack.search(15));
-        System.out.println(stack.empty());
+        System.out.println(stack);
 
         System.out.println(stack);
 
