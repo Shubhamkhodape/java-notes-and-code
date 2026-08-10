@@ -47,7 +47,8 @@ public class Test {
         System.out.println(map.remove("C"));
         System.out.println(map);
         
-
+ 
+        
         // Returns all the key present in the Map
         Set<String> s = map.keySet();
         System.out.println(s);
@@ -64,19 +65,6 @@ public class Test {
         for(Map.Entry<String, Integer> entry : map.entrySet()){
             System.out.println("Keys : " + entry.getKey()+ " values : "+ entry.getValue());
         }
-
-
-
-
-
-
-        
-
-
-
-
-
-
 
         
     }
